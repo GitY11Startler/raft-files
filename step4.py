@@ -56,18 +56,7 @@ def get_valid_disparity_mask(flow, max_vertical_threshold=1.0, min_horizontal_fl
     return valid_mask
 
 def disparity_to_depth(disparity, focal_length, baseline, valid_mask=None):
-    """
-    Convert disparity map to depth map.
-    
-    Args:
-        disparity: Disparity map (H,W)
-        focal_length: Camera focal length (pixels)
-        baseline: Stereo baseline (meters)
-        valid_mask: Optional mask of valid pixels
-    
-    Returns:
-        depth_map: Depth in meters (invalid pixels = np.nan)
-    """
+    """Convert disparity map to depth map"""
     with np.errstate(divide='ignore', invalid='ignore'):
         depth = (focal_length * baseline) / disparity
     
@@ -142,8 +131,3 @@ if __name__ == '__main__':
     plt.tight_layout()
     plt.savefig('disparity_depth_results.png')
     print("Results saved to disparity_depth_results.png")
-
-    # Additional debug outputs
-    print(f"Disparity range: {np.nanmin(disparity):.2f} to {np.nanmax(disparity):.2f} px")
-    print(f"Depth range: {np.nanmin(depth_map):.2f} to {np.nanmax(depth_map):.2f} m")
-    print(f"Valid pixels: {valid_mask.sum()}/{valid_mask.size} ({valid_mask.sum()/valid_mask.size*100:.1f}%)")
