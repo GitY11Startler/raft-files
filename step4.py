@@ -44,7 +44,7 @@ def visualize_flow(flow):
     hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
     return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
-def get_valid_disparity_mask(flow, max_vertical_threshold=0.5, min_horizontal_flow=0.3, max_horizontal_flow=50):
+def get_valid_disparity_mask(flow, max_vertical_threshold=0.8, min_horizontal_flow=0.3, max_horizontal_flow=50):
     '''Creates a mask of pixels where optical flow can be used as disparity'''
     horizontal_flow = flow[..., 0]
     vertical_flow = flow[..., 1]
@@ -98,13 +98,13 @@ if __name__ == '__main__':
     masked_disparity = np.ma.masked_where(~valid_mask, disparity)
 
     # Step 4: Disparity to depth conversion
-    focal_length = 1.03530811e+03  
+    focal_length_left = 1.03530811e+03 
+    focal_length_right = 1.03517419e+03 
     baseline = 4.14339018e+00 
-    
-    depth_map = disparity_to_depth(disparity, focal_length, baseline, valid_mask)
+    depth_map = disparity_to_depth(disparity, (focal_length_left+focal_length_right)/2, baseline, valid_mask)
 
     # Visualization
-    plt.figure(figsize=(15, 6))
+    plt.figure(figsize=(16, 6))
 
     # Original Disparity
     plt.subplot(1, 4, 1)
