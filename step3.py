@@ -84,38 +84,38 @@ if __name__ == '__main__':
 
     flow_img = visualize_flow(flow)
 
-# 1. Compute valid disparity mask
-valid_mask = get_valid_disparity_mask(flow)
-
-# 2. Create masked disparity visualization
-disparity = flow[..., 0]  # Horizontal flow = disparity
-masked_disparity = np.ma.masked_where(~valid_mask, disparity)  # Mask invalid pixels
-
-# 3. Create composite visualization (50% image + 50% disparity)
-overlay = cv2.addWeighted(
-    cv2.cvtColor(img1, cv2.COLOR_RGB2GRAY), 0.5,
-    np.uint8(valid_mask * 255), 0.5, 0
-)
-
-# Plot results
-plt.figure(figsize=(12, 6))
-
-# Original Disparity
-plt.subplot(1, 3, 1)
-plt.imshow(disparity, cmap='jet')
-plt.colorbar(label='Disparity (pixels)')
-plt.title("Raw Disparity Map")
-
-# Valid Mask Overlay
-plt.subplot(1, 3, 2)
-plt.imshow(overlay, cmap='gray')
-plt.title("Valid Pixels (White = Valid)")
-
-# Masked Disparity
-plt.subplot(1, 3, 3)
-plt.imshow(masked_disparity, cmap='jet')
-plt.colorbar(label='Valid Disparity (pixels)')
-plt.title("Filtered Disparity")
-
-plt.savefig('masked_output.png')
-print("Output saved to masked_output.png")
+    # 1. Compute valid disparity mask
+    valid_mask = get_valid_disparity_mask(flow)
+    
+    # 2. Create masked disparity visualization
+    disparity = flow[..., 0]  # Horizontal flow = disparity
+    masked_disparity = np.ma.masked_where(~valid_mask, disparity)  # Mask invalid pixels
+    
+    # 3. Create composite visualization (50% image + 50% disparity)
+    overlay = cv2.addWeighted(
+        cv2.cvtColor(img1, cv2.COLOR_RGB2GRAY), 0.5,
+        np.uint8(valid_mask * 255), 0.5, 0
+    )
+    
+    # Plot results
+    plt.figure(figsize=(12, 6))
+    
+    # Original Disparity
+    plt.subplot(1, 3, 1)
+    plt.imshow(disparity, cmap='jet')
+    plt.colorbar(label='Disparity (pixels)')
+    plt.title("Raw Disparity Map")
+    
+    # Valid Mask Overlay
+    plt.subplot(1, 3, 2)
+    plt.imshow(overlay, cmap='gray')
+    plt.title("Valid Pixels (White = Valid)")
+    
+    # Masked Disparity
+    plt.subplot(1, 3, 3)
+    plt.imshow(masked_disparity, cmap='jet')
+    plt.colorbar(label='Valid Disparity (pixels)')
+    plt.title("Filtered Disparity")
+    
+    plt.savefig('masked_output.png')
+    print("Output saved to masked_output.png")
