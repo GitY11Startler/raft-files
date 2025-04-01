@@ -34,41 +34,33 @@ def compute_optical_flow(model, img1, img2):
         flow_low, flow_up = model(img1, img2, iters=20, test_mode=True)
     return flow_up[0].permute(1, 2, 0).cpu().numpy()
 
-def visualize_flow(flow):
-    """Convert flow to RGB visualization"""
-    hsv = np.zeros((flow.shape[0], flow.shape[1], 3), dtype=np.uint8)
-    hsv[..., 1] = 255
-
-    mag, ang = cv2.cartToPolar(flow[..., 0], flow[..., 1])
-    hsv[..., 0] = ang * 180 / np.pi / 2
-    hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
-    return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-
-def get_valid_disparity_mask(flow, max_vertical_threshold=0.8, min_horizontal_flow=0.3, max_horizontal_flow=50):
+def get_valid_disparity_mask(flow, max_vertical_threshold=0.5, min_horizontal_threshold=1, max_horizontal_threshold=50):
     '''Creates a mask of pixels where optical flow can be used as disparity'''
     horizontal_flow = flow[..., 0]
     vertical_flow = flow[..., 1]
     
     valid_mask = (
         (np.abs(vertical_flow) < max_vertical_threshold) & 
-        (horizontal_flow > min_horizontal_flow) & 
-        (horizontal_flow < max_horizontal_flow))
+        (horizontal_flow > min_horizontal_threshold) & 
+        (horizontal_flow < max_horizontal_threshold))
     
     return valid_mask
 
-def disparity_to_depth(disparity, focal_length, baseline, valid_mask=None):
-    """Convert disparity map to depth map"""
-    with np.errstate(divide='ignore', invalid='ignore'):
-        depth = (focal_length * baseline) / disparity
+def disparity_to_depth(fx, B, cx_left, cx_right, disparity):
+    """Compute depth from disparity, applying principal point offset correction."""
+    delta_cx = cx_left - cx_right  # Principal offset
+    disparity_corrected = disparity - delta_cx  # Corrected disparity
     
-    if valid_mask is not None:
-        depth[~valid_mask] = np.nan
-    
+    # Avoid division by zero (set small values to a minimum disparity)
+    disparity_corrected = np.maximum(disparity_corrected, 1e-6)
+
+    # Compute depth
+    depth = (fx * B) / disparity_corrected
     return depth
 
 # Main execution
 if __name__ == '__main__':
-    # Load your stereo images
+    # Load your stereo images (replace with your actual images)
     img1 = cv2.imread('/content/DL Medical Assignment/frame_left.png')
     img2 = cv2.imread('/content/DL Medical Assignment/frame_right.png')
 
@@ -90,45 +82,57 @@ if __name__ == '__main__':
     img2_tensor = preprocess_image(img2)
 
     # Compute optical flow
-    flow = compute_optical_flow(model, img1_tensor, img2_tensor)
+    flow1 = compute_optical_flow(model, img1_tensor, img2_tensor)
+    flow2 = compute_optical_flow(model, img2_tensor, img1_tensor)
+    
+    #Initializing some parameters for applying the masks
+    max_v_thr = 0.5
+    min_h_thr = flow1[..., 0].min()
+    max_h_thr = flow1[..., 0].max()
+    eps1 = 3.0
+    eps2 = 4.0
+    
+    # 1. Compute valid disparity mask
+    valid_mask1 = get_valid_disparity_mask(flow1, max_v_thr, min_h_thr+eps1, max_h_thr-eps1)
+    valid_mask2 = get_valid_disparity_mask(flow2, max_v_thr, -max_h_thr+eps2, -min_h_thr-eps2)
+    final_mask = valid_mask1 & valid_mask2
 
-    # Step 3: Valid disparity mask
-    valid_mask = get_valid_disparity_mask(flow)
-    disparity = flow[..., 0]  # Horizontal flow = disparity
-    masked_disparity = np.ma.masked_where(~valid_mask, disparity)
+    # 2. Create masked disparity visualization
+    disparity1 = np.where(final_mask, flow1[..., 0], 0)  # Horizontal flow = disparity
+    disparity2 = np.where(final_mask, -flow2[..., 0], 0) 
+    final_disparity = np.ma.masked_where(~final_mask, (disparity1+disparity2)/2)
 
-    # Step 4: Disparity to depth conversion
-    focal_length_left = 1.03530811e+03 
-    focal_length_right = 1.03517419e+03 
-    baseline = 4.14339018e+00 
-    depth_map = disparity_to_depth(disparity, (focal_length_left+focal_length_right)/2, baseline, valid_mask)
+    # Define camera parameters
+    fx_left = 1035.31
+    fx_right = 1035.17
+    baseline = 4.14339018e-2 #baseline should be in meters, but it's given in centimeters
+    cx_left = 596.96
+    cx_right = 688.36
 
-    # Visualization
-    plt.figure(figsize=(16, 6))
+    # Compute depth maps
+    depth_left = disparity_to_depth(fx_left, baseline, cx_left, cx_right, disparity1)
+    depth_right = disparity_to_depth(fx_right, baseline, cx_left, cx_right, disparity2)
+    final_depth = disparity_to_depth((fx_right+fx_left)/2, baseline, cx_left, cx_right, final_disparity)
 
-    # Original Disparity
-    plt.subplot(1, 4, 1)
-    plt.imshow(disparity, cmap='jet')
-    plt.colorbar(label='Disparity (pixels)')
-    plt.title("Raw Disparity")
+    # Save the final depths set in a separate file
+    plt.figure(figsize=(14, 6))
+    
+    plt.subplot(1, 3, 1)
+    plt.imshow(depth_left, cmap='viridis')
+    plt.colorbar(label="Depth (meters)")
+    plt.title("Depth Map (Left cam)")
 
-    # Valid Mask
-    plt.subplot(1, 4, 2)
-    plt.imshow(valid_mask, cmap='gray')
-    plt.title("Valid Pixels Mask")
+    plt.subplot(1, 3, 2)
+    plt.imshow(depth_right, cmap='viridis')
+    plt.colorbar(label="Depth (meters)")
+    plt.title("Depth Map (Right cam)")
+    
+    plt.subplot(1, 3, 3)
+    plt.imshow(final_depth, cmap='viridis')
+    plt.colorbar(label="Depth (meters)")
+    plt.title("Final Depth Map")
 
-    # Filtered Disparity
-    plt.subplot(1, 4, 3)
-    plt.imshow(masked_disparity, cmap='jet')
-    plt.colorbar(label='Valid Disparity (pixels)')
-    plt.title("Filtered Disparity")
-
-    # Depth Map
-    plt.subplot(1, 4, 4)
-    plt.imshow(depth_map, cmap='viridis')
-    plt.colorbar(label='Depth (meters)')
-    plt.title("Depth Map")
-
-    plt.tight_layout()
-    plt.savefig('disparity_depth_results.png')
-    print("Results saved to disparity_depth_results.png")
+    # Save third plot
+    plt.savefig("depth_maps.png")
+    print("Output saved to depth_maps.png")
+    plt.close()
