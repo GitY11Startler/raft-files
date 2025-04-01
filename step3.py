@@ -88,7 +88,7 @@ if __name__ == '__main__':
     min_h_thr = flow1[..., 0].min()
     max_h_thr = flow1[..., 0].max()
     eps1 = 3.0
-    eps2 = eps1+6
+    eps2 = 4.0
 
     # 1. Compute valid disparity mask
     valid_mask1 = get_valid_disparity_mask(flow1, max_v_thr, min_h_thr+eps1, max_h_thr-eps1)
@@ -98,6 +98,7 @@ if __name__ == '__main__':
     # 2. Create masked disparity visualization
     disparity1 = np.where(final_mask, flow1[..., 0], 0)  # Horizontal flow = disparity
     disparity2 = np.where(final_mask, -flow2[..., 0], 0) 
+    print(disparity1==disparity2)
     final_disparity = np.ma.masked_where(~final_mask, (disparity1+disparity2)/2)
     
     # 3. Create composite visualization (50% image + 50% disparity)
@@ -109,37 +110,45 @@ if __name__ == '__main__':
         cv2.cvtColor(img2, cv2.COLOR_RGB2GRAY), 0.5,
         np.uint8(valid_mask2 * 255), 0.5, 0
     )
-    
-    # Plot results
+
+    # Save the first four plots
     plt.figure(figsize=(12, 6))
-    
+
     # Original Disparity left to right
-    plt.subplot(2, 3, 1)
+    plt.subplot(2, 2, 1)  # Change to 2x2 grid
     plt.imshow(disparity1, cmap='jet')
     plt.colorbar(label='Disparity (pixels)')
-    plt.title("Raw Disparity Map")
+    plt.title("Raw Disparity Map Left To Right")
 
     # Original Disparity right to left
-    plt.subplot(2, 3, 4)
+    plt.subplot(2, 2, 3)
     plt.imshow(disparity2, cmap='jet')
     plt.colorbar(label='Disparity (pixels)')
-    # plt.title("Raw Disparity Map")
-    
-    # Valid Mask Overlay ltr
-    plt.subplot(2, 3, 2)
-    plt.imshow(overlay1, cmap='gray')
-    plt.title("Valid Pixels (White = Valid)")
-    
-    # Valid Mask Overlay rtl
-    plt.subplot(2, 3, 5)
-    plt.imshow(overlay2, cmap='gray')
-    # plt.title("Valid Pixels (White = Valid)")
+    plt.title("Raw Disparity Map Right To Left")
 
-    # Masked Disparity final
-    plt.subplot(2, 3, 6)
+    # Valid Mask Overlay left to right
+    plt.subplot(2, 2, 2)
+    plt.imshow(overlay1, cmap='gray')
+    plt.title("Valid Pixels Left To Right (White = Valid)")
+
+    # Valid Mask Overlay right to left
+    plt.subplot(2, 2, 4)
+    plt.imshow(overlay2, cmap='gray')
+    plt.title("Valid Pixels Right To Left")
+
+    # Save first set of plots
+    plt.tight_layout()
+    plt.savefig('masked_output.png')
+    print("Output saved to masked_output.png")
+    plt.close()  # Close figure to avoid overlap
+
+    # Save the final disparity separately
+    plt.figure(figsize=(6, 6))  # Separate figure
     plt.imshow(final_disparity, cmap='jet')
     plt.colorbar(label='Valid Disparity (pixels)')
     plt.title("Filtered Disparity")
-    
-    plt.savefig('masked_output.png')
-    print("Output saved to masked_output.png")
+
+    # Save second plot
+    plt.savefig("filtered_disparity.png")
+    print("Output saved to filtered_disparity.png")
+    plt.close()
