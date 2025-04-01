@@ -87,8 +87,8 @@ if __name__ == '__main__':
     max_v_thr = 0.5
     min_h_thr = flow1[..., 0].min()
     max_h_thr = flow1[..., 0].max()
-    eps1 = 3.0
-    eps2 = 4.0
+    eps1 = 3
+    eps2 = 5
 
     # 1. Compute valid disparity mask
     valid_mask1 = get_valid_disparity_mask(flow1, max_v_thr, min_h_thr+eps1, max_h_thr-eps1)
@@ -99,7 +99,7 @@ if __name__ == '__main__':
     disparity1 = np.where(final_mask, flow1[..., 0], 0)  # Horizontal flow = disparity
     disparity2 = np.where(final_mask, -flow2[..., 0], 0) 
     final_disparity = np.ma.masked_where(~final_mask, (disparity1+disparity2)/2)
-    
+
     # 3. Create composite visualization (50% image + 50% disparity)
     overlay1 = cv2.addWeighted(
         cv2.cvtColor(img1, cv2.COLOR_RGB2GRAY), 0.5,
