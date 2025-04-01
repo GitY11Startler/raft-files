@@ -44,15 +44,15 @@ def visualize_flow(flow):
     hsv[..., 2] = cv2.normalize(mag, None, 0, 255, cv2.NORM_MINMAX)
     return cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
 
-def get_valid_disparity_mask(flow, max_vertical_threshold=0.5, min_horizontal_flow=0.3, max_horizontal_flow=50):
+def get_valid_disparity_mask(flow, max_vertical_threshold=0.5, min_horizontal_threshold=1, max_horizontal_threshold=50):
     '''Creates a mask of pixels where optical flow can be used as disparity'''
     horizontal_flow = flow[..., 0]
     vertical_flow = flow[..., 1]
     
     valid_mask = (
         (np.abs(vertical_flow) < max_vertical_threshold) & 
-        (horizontal_flow > min_horizontal_flow) & 
-        (horizontal_flow < max_horizontal_flow))
+        (horizontal_flow > min_horizontal_threshold) & 
+        (horizontal_flow < max_horizontal_threshold))
     
     return valid_mask
 
