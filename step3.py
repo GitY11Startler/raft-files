@@ -80,40 +80,64 @@ if __name__ == '__main__':
     img2_tensor = preprocess_image(img2)
 
     # Compute optical flow
-    flow = compute_optical_flow(model, img1_tensor, img2_tensor)
-
-    flow_img = visualize_flow(flow)
+    flow1 = compute_optical_flow(model, img1_tensor, img2_tensor)
+    flow2 = compute_optical_flow(model, img2_tensor, img1_tensor)
+    
+    #Initializing some parameters for applying the masks
+    max_v_thr = 0.5
+    min_h_thr = flow1[..., 0].min()
+    max_h_thr = flow1[..., 0].max()
+    eps1 = 3.0
+    eps2 = eps1+6
 
     # 1. Compute valid disparity mask
-    valid_mask = get_valid_disparity_mask(flow)
-    
+    valid_mask1 = get_valid_disparity_mask(flow1, max_v_thr, min_h_thr+eps1, max_h_thr-eps1)
+    valid_mask2 = get_valid_disparity_mask(flow2, max_v_thr, -max_h_thr+eps2, -min_h_thr-eps2)
+    final_mask = valid_mask1 & valid_mask2
+
     # 2. Create masked disparity visualization
-    disparity = flow[..., 0]  # Horizontal flow = disparity
-    masked_disparity = np.ma.masked_where(~valid_mask, disparity)  # Mask invalid pixels
+    disparity1 = np.where(final_mask, flow1[..., 0], 0)  # Horizontal flow = disparity
+    disparity2 = np.where(final_mask, -flow2[..., 0], 0) 
+    final_disparity = np.ma.masked_where(~final_mask, (disparity1+disparity2)/2)
     
     # 3. Create composite visualization (50% image + 50% disparity)
-    overlay = cv2.addWeighted(
+    overlay1 = cv2.addWeighted(
         cv2.cvtColor(img1, cv2.COLOR_RGB2GRAY), 0.5,
-        np.uint8(valid_mask * 255), 0.5, 0
+        np.uint8(valid_mask1 * 255), 0.5, 0
+    )
+    overlay2 = cv2.addWeighted(
+        cv2.cvtColor(img2, cv2.COLOR_RGB2GRAY), 0.5,
+        np.uint8(valid_mask2 * 255), 0.5, 0
     )
     
     # Plot results
     plt.figure(figsize=(12, 6))
     
-    # Original Disparity
-    plt.subplot(1, 3, 1)
-    plt.imshow(disparity, cmap='jet')
+    # Original Disparity left to right
+    plt.subplot(2, 3, 1)
+    plt.imshow(disparity1, cmap='jet')
     plt.colorbar(label='Disparity (pixels)')
     plt.title("Raw Disparity Map")
+
+    # Original Disparity right to left
+    plt.subplot(2, 3, 4)
+    plt.imshow(disparity2, cmap='jet')
+    plt.colorbar(label='Disparity (pixels)')
+    # plt.title("Raw Disparity Map")
     
-    # Valid Mask Overlay
-    plt.subplot(1, 3, 2)
-    plt.imshow(overlay, cmap='gray')
+    # Valid Mask Overlay ltr
+    plt.subplot(2, 3, 2)
+    plt.imshow(overlay1, cmap='gray')
     plt.title("Valid Pixels (White = Valid)")
     
-    # Masked Disparity
-    plt.subplot(1, 3, 3)
-    plt.imshow(masked_disparity, cmap='jet')
+    # Valid Mask Overlay rtl
+    plt.subplot(2, 3, 5)
+    plt.imshow(overlay2, cmap='gray')
+    # plt.title("Valid Pixels (White = Valid)")
+
+    # Masked Disparity final
+    plt.subplot(2, 3, 6)
+    plt.imshow(final_disparity, cmap='jet')
     plt.colorbar(label='Valid Disparity (pixels)')
     plt.title("Filtered Disparity")
     
